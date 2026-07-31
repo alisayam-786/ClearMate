@@ -18,7 +18,7 @@
     "lucide-react": "latest",
     "next": "latest",
     "openai": "latest",
-    "pdfjs-dist": "latest",
+    "pdfjs-dist": "4.10.38",
     "react": "latest",
     "react-dom": "latest",
     "react-hook-form": "latest",

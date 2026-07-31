@@ -5,7 +5,7 @@ import { isAnalysisResult } from "@/types/analysis";
 
 export const runtime = "nodejs";
 
-const MAX_EXTRACTED_TEXT_LENGTH = 500_000;
+const MAX_EXTRACTED_TEXT_LENGTH = 30000;
 
 const systemPrompt = `You are ClearMate, an AI document intelligence assistant.
 
@@ -65,12 +65,10 @@ export async function POST(request: Request) {
     );
   }
 
-  if (payload.extractedText.length > MAX_EXTRACTED_TEXT_LENGTH) {
-    return NextResponse.json(
-      { error: "Extracted text is too large to analyze." },
-      { status: 413 }
-    );
-  }
+  const extractedText = payload.extractedText.slice(
+    0,
+    MAX_EXTRACTED_TEXT_LENGTH
+  );
 
   const apiKey = process.env.OPENROUTER_API_KEY;
 
@@ -90,7 +88,8 @@ export async function POST(request: Request) {
     console.log("🚀 Calling OpenRouter...");
 
     const response = await client.chat.completions.create({
-      model: "openrouter/auto",
+      model: "google/gemini-2.5-flash",
+
       messages: [
         {
           role: "system",
@@ -98,12 +97,15 @@ export async function POST(request: Request) {
         },
         {
           role: "user",
-          content: payload.extractedText,
+          content: extractedText,
         },
       ],
+
       response_format: {
         type: "json_object",
       },
+
+      max_tokens: 2000,
     });
 
     console.log("✅ OpenRouter responded successfully.");
