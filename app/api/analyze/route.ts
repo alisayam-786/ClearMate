@@ -9,7 +9,7 @@ const MAX_EXTRACTED_TEXT_LENGTH = 30000;
 
 const systemPrompt = `You are ClearMate, an AI document intelligence assistant.
 
-Given the extracted document text, return ONLY valid JSON in this format:
+Given the extracted document text, return ONLY valid JSON in this exact format:
 
 {
   "documentType": "",
@@ -26,13 +26,12 @@ Given the extracted document text, return ONLY valid JSON in this format:
 }
 
 Rules:
-
-- Detect document type.
-- Write a simple summary understandable by a normal person.
-- Extract important facts.
-- Suggest actions if needed.
-- Never return markdown.
-- Never wrap JSON in \`\`\`.`;
+- Return ONLY JSON.
+- Do NOT write explanations.
+- Do NOT wrap JSON in markdown.
+- Do NOT use \`\`\`.
+- Every property must exist.
+`;
 
 function hasExtractedText(
   payload: unknown
@@ -110,8 +109,18 @@ export async function POST(request: Request) {
 
     console.log("✅ OpenRouter responded successfully.");
 
-    const responseText =
-      response.choices[0]?.message?.content?.trim();
+    let responseText =
+      response.choices[0]?.message?.content?.trim() ?? "";
+
+    console.log("========== RAW GEMINI RESPONSE ==========");
+    console.log(responseText);
+
+    // Remove markdown fences if Gemini adds them
+    responseText = responseText
+      .replace(/^```json\s*/i, "")
+      .replace(/^```\s*/i, "")
+      .replace(/\s*```$/i, "")
+      .trim();
 
     if (!responseText) {
       return NextResponse.json(
@@ -124,20 +133,27 @@ export async function POST(request: Request) {
 
     try {
       analysis = JSON.parse(responseText);
-    } catch {
+    } catch (error) {
       console.error("❌ Invalid JSON received:");
       console.error(responseText);
 
       return NextResponse.json(
-        { error: "OpenRouter returned invalid JSON." },
+        {
+          error: "OpenRouter returned invalid JSON.",
+          raw: responseText,
+        },
         { status: 502 }
       );
     }
 
     if (!isAnalysisResult(analysis)) {
+      console.error("❌ JSON shape is invalid:");
+      console.error(analysis);
+
       return NextResponse.json(
         {
           error: "OpenRouter returned an unexpected response format.",
+          raw: analysis,
         },
         { status: 502 }
       );
