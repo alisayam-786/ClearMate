@@ -13,12 +13,106 @@ import {
 import { ResultCard } from "@/components/results/result-card";
 import { useDocumentContext, type ChatMessage } from "@/contexts/document-context";
 
-const suggestedQuestions = [
-  "What is the due date or deadline?",
-  "What is the total amount or summary?",
-  "What should I do next?",
-  "Explain key terms simply",
-];
+function getSuggestedQuestions(documentType?: string): string[] {
+  const type = (documentType || "").toLowerCase();
+
+  if (type.includes("resume") || type.includes("cv")) {
+    return [
+      "What skills are mentioned?",
+      "How can I improve this resume?",
+      "Is this ATS friendly?",
+      "Explain my projects",
+    ];
+  }
+
+  if (
+    type.includes("medical") ||
+    type.includes("health") ||
+    type.includes("lab") ||
+    type.includes("report")
+  ) {
+    return [
+      "Explain the abnormal values",
+      "Summarize this report",
+      "Which results need attention?",
+      "Should I consult a doctor?",
+    ];
+  }
+
+  if (
+    type.includes("bill") ||
+    type.includes("electricity") ||
+    type.includes("utility") ||
+    type.includes("invoice")
+  ) {
+    return [
+      "What is my due date?",
+      "Explain these charges",
+      "How much should I pay?",
+      "How can I reduce this bill?",
+    ];
+  }
+
+  if (
+    type.includes("legal") ||
+    type.includes("contract") ||
+    type.includes("agreement") ||
+    type.includes("policy")
+  ) {
+    return [
+      "Explain this clause",
+      "What are my obligations?",
+      "Are there penalties?",
+      "Summarize this agreement",
+    ];
+  }
+
+  return [
+    "What is the due date or deadline?",
+    "What is the total amount or summary?",
+    "What should I do next?",
+    "Explain key terms simply",
+  ];
+}
+
+function getWelcomeMessage(documentType?: string): string {
+  const type = (documentType || "").toLowerCase();
+
+  if (type.includes("resume") || type.includes("cv")) {
+    return "I've analyzed your resume. Ask me about your skills, projects, ATS improvements, or experience.";
+  }
+
+  if (
+    type.includes("medical") ||
+    type.includes("health") ||
+    type.includes("lab") ||
+    type.includes("report")
+  ) {
+    return "I've analyzed your medical report. Ask me about test results, abnormal values, or medical terminology.";
+  }
+
+  if (
+    type.includes("bill") ||
+    type.includes("electricity") ||
+    type.includes("utility") ||
+    type.includes("invoice")
+  ) {
+    return "I've analyzed your electricity bill. Ask me about charges, due dates, payment details, or consumption.";
+  }
+
+  if (
+    type.includes("legal") ||
+    type.includes("contract") ||
+    type.includes("agreement") ||
+    type.includes("policy")
+  ) {
+    return "I've analyzed your legal document. Ask me about clauses, obligations, penalties, or agreement terms.";
+  }
+
+  return `I've analyzed your ${
+    documentType ? documentType.toLowerCase() : "document"
+  }. What would you like to know about it?`;
+}
 
 export function AskAiCard() {
   const { extractedText, chatMessages, setChatMessages, analysisResult } =
@@ -30,28 +124,36 @@ export function AskAiCard() {
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const documentType = analysisResult?.documentType;
+
   const initialGreeting: ChatMessage = {
     id: "initial-greeting",
     role: "assistant",
-    content: `I've analyzed your ${
-      analysisResult?.documentType ? analysisResult.documentType.toLowerCase() : "document"
-    }. What would you like to know about it?`,
+    content: getWelcomeMessage(documentType),
   };
 
   const displayMessages =
     chatMessages.length > 0 ? chatMessages : [initialGreeting];
 
+  const suggestedQuestions = getSuggestedQuestions(documentType);
+  const showSuggestions = chatMessages.length === 0;
+
   // Scroll ONLY the internal chat message container (never the page window)
   useEffect(() => {
     if (chatContainerRef.current) {
-      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+      const el = chatContainerRef.current;
+      requestAnimationFrame(() => {
+        el.scrollTop = el.scrollHeight;
+      });
     }
   }, [displayMessages, isSending]);
 
-  // Maintain keyboard focus on input after sending/receiving replies
+  // Maintain keyboard focus on input after sending/receiving replies without page scrolling
   useEffect(() => {
     if (!isSending && extractedText) {
-      inputRef.current?.focus();
+      if (inputRef.current) {
+        inputRef.current.focus({ preventScroll: true });
+      }
     }
   }, [isSending, extractedText]);
 
@@ -62,7 +164,10 @@ export function AskAiCard() {
     setError(null);
 
     const userMessage: ChatMessage = {
-      id: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
+      id:
+        typeof crypto !== "undefined" && crypto.randomUUID
+          ? crypto.randomUUID()
+          : String(Date.now()),
       role: "user",
       content: messageText,
     };
@@ -88,11 +193,16 @@ export function AskAiCard() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data?.error || "Failed to get an answer from ClearMate AI.");
+        throw new Error(
+          data?.error || "Failed to get an answer from ClearMate AI."
+        );
       }
 
       const assistantMessage: ChatMessage = {
-        id: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + 1),
+        id:
+          typeof crypto !== "undefined" && crypto.randomUUID
+            ? crypto.randomUUID()
+            : String(Date.now() + 1),
         role: "assistant",
         content: data.message,
       };
@@ -100,7 +210,9 @@ export function AskAiCard() {
       setChatMessages((prev) => [...prev, assistantMessage]);
     } catch (err: any) {
       console.error("Chat error:", err);
-      setError(err?.message || "Something went wrong. Please try asking again.");
+      setError(
+        err?.message || "Something went wrong. Please try asking again."
+      );
     } finally {
       setIsSending(false);
     }
@@ -219,25 +331,27 @@ export function AskAiCard() {
         </button>
       </form>
 
-      {/* Suggested Questions */}
-      <div className="mt-5 border-t border-slate-100 pt-4">
-        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">
-          Suggested questions
-        </p>
-        <div className="mt-2.5 flex flex-wrap gap-2">
-          {suggestedQuestions.map((question) => (
-            <button
-              key={question}
-              type="button"
-              disabled={isSending || !extractedText}
-              onClick={() => void handleSendMessage(question)}
-              className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:border-blue-200 hover:bg-blue-50 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50"
-            >
-              {question}
-            </button>
-          ))}
+      {/* Dynamic Suggested Questions - Shown only before the first user message */}
+      {showSuggestions ? (
+        <div className="mt-5 border-t border-slate-100 pt-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">
+            Suggested questions
+          </p>
+          <div className="mt-2.5 flex flex-wrap gap-2">
+            {suggestedQuestions.map((question) => (
+              <button
+                key={question}
+                type="button"
+                disabled={isSending || !extractedText}
+                onClick={() => void handleSendMessage(question)}
+                className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:border-blue-200 hover:bg-blue-50 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50"
+              >
+                {question}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      ) : null}
     </ResultCard>
   );
 }
