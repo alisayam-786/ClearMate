@@ -1,10 +1,12 @@
 "use client";
 
+import { useEffect } from "react";
 import { ArrowLeft, FileCheck2, FileQuestion } from "lucide-react";
 
 import { Footer } from "@/components/layout/footer";
 import { Navbar } from "@/components/layout/navbar";
 import { ActionCard } from "@/components/results/action-card";
+import { AskAiCard } from "@/components/results/ask-ai-card";
 import { ConfidenceCard } from "@/components/results/confidence-card";
 import { DocumentTypeCard } from "@/components/results/document-type-card";
 import { ImportantInformationCard } from "@/components/results/important-information-card";
@@ -14,6 +16,12 @@ import { useDocumentContext } from "@/contexts/document-context";
 
 export default function ResultsPage() {
   const { analysisResult, documentFile } = useDocumentContext();
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+    }
+  }, []);
 
   if (!documentFile || !analysisResult) {
     return (
@@ -87,7 +95,7 @@ export default function ResultsPage() {
 
           {/* Analysis Cards */}
 
-          <div className="mt-8 grid gap-5 lg:grid-cols-[1.05fr_0.95fr]">
+          <div className="mt-8 grid items-start gap-5 lg:grid-cols-[1.05fr_0.95fr]">
             <div className="space-y-5">
               <div
                 className="animate-clearmate-fade-up"
@@ -114,6 +122,15 @@ export default function ResultsPage() {
                 />
               </div>
             </div>
+          </div>
+
+          {/* Ask ClearMate AI */}
+
+          <div
+            className="mt-8 animate-clearmate-fade-up"
+            style={{ animationDelay: "200ms" }}
+          >
+            <AskAiCard />
           </div>
 
           {/* Bottom Section */}

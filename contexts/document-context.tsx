@@ -5,6 +5,12 @@ import type { ReactNode } from "react";
 
 import type { AnalysisResult } from "@/types/analysis";
 
+export type ChatMessage = {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+};
+
 type DocumentContextValue = {
   documentFile: File | null;
   setDocumentFile: (file: File | null) => void;
@@ -12,6 +18,8 @@ type DocumentContextValue = {
   setExtractedText: (text: string) => void;
   analysisResult: AnalysisResult | null;
   setAnalysisResult: (analysis: AnalysisResult | null) => void;
+  chatMessages: ChatMessage[];
+  setChatMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
 };
 
 /** In-memory document session shared by the upload, processing, and results routes. */
@@ -22,16 +30,27 @@ export function DocumentProvider({ children }: Readonly<{ children: ReactNode }>
   const [documentFile, setDocumentFileState] = useState<File | null>(null);
   const [extractedText, setExtractedText] = useState("");
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
 
   const setDocumentFile = useCallback((file: File | null) => {
     setDocumentFileState(file);
     setExtractedText("");
     setAnalysisResult(null);
+    setChatMessages([]);
   }, []);
 
   const value = useMemo(
-    () => ({ documentFile, setDocumentFile, extractedText, setExtractedText, analysisResult, setAnalysisResult }),
-    [analysisResult, documentFile, extractedText, setDocumentFile],
+    () => ({
+      documentFile,
+      setDocumentFile,
+      extractedText,
+      setExtractedText,
+      analysisResult,
+      setAnalysisResult,
+      chatMessages,
+      setChatMessages,
+    }),
+    [analysisResult, chatMessages, documentFile, extractedText, setDocumentFile],
   );
 
   return <DocumentContext value={value}>{children}</DocumentContext>;
