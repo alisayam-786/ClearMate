@@ -28,7 +28,40 @@ function getStatusMessage(progress: number) {
 }
 
 function getErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : "An unexpected error occurred.";
+  const message =
+    error instanceof Error ? error.message.toLowerCase() : "";
+
+  if (
+    message.includes("no readable text") ||
+    message.includes("extract text") ||
+    message.includes("empty")
+  ) {
+    return "This document appears to be scanned or image-based. ClearMate currently supports searchable PDFs with selectable text. OCR support for scanned documents is planned for a future release.";
+  }
+
+  if (
+    message.includes("password") ||
+    message.includes("encrypted")
+  ) {
+    return "This document is password protected. Please remove the password and upload it again. Support for password-protected PDFs is planned for a future update.";
+  }
+
+  if (message.includes("timed out")) {
+    return "The analysis took too long. Please try again.";
+  }
+
+  if (message.includes("too large")) {
+    return "This document is too large to analyze. Please upload a smaller PDF.";
+  }
+
+  if (
+    message.includes("network") ||
+    message.includes("failed to fetch")
+  ) {
+    return "Network connection lost. Please check your internet connection and try again.";
+  }
+
+  return "Something went wrong while analyzing your document. Please try again.";
 }
 
 async function readAnalysisResponse(response: Response) {
@@ -187,7 +220,25 @@ export function ProcessingStatus() {
         </div>
         <h1 className="mt-5 text-3xl font-bold tracking-[-0.045em] text-ink sm:text-4xl">{isComplete ? "Your analysis is ready." : processingError ? "We couldn’t analyze this document." : "Analyzing your document..."}</h1>
         <p className="mx-auto mt-4 max-w-md text-sm leading-7 text-slate-600 sm:text-base" role={processingError ? "alert" : undefined}>{isComplete ? "Taking you to your document overview now." : processingError ?? "Please wait while ClearMate identifies the document type, extracts important information, and prepares an easy-to-understand explanation."}</p>
-        {processingError ? <button type="button" onClick={() => setAttempt((current) => current + 1)} className="mt-6 inline-flex items-center justify-center rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(37,99,235,0.22)] transition duration-200 hover:-translate-y-0.5 hover:bg-primary-dark hover:shadow-[0_14px_28px_rgba(37,99,235,0.28)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">Retry</button> : null}
+        {processingError ? (
+          <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
+            <button
+              type="button"
+              onClick={() => router.push("/analyze")}
+              className="inline-flex items-center justify-center rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(37,99,235,0.22)] transition duration-200 hover:-translate-y-0.5 hover:bg-primary-dark hover:shadow-[0_14px_28px_rgba(37,99,235,0.28)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+            >
+              Upload Another Document
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setAttempt((current) => current + 1)}
+              className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition duration-200 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+            >
+              Retry
+            </button>
+          </div>
+        ) : null}
       </div>
 
       <div className="relative mt-8 rounded-2xl bg-slate-50 p-4 sm:p-5">
