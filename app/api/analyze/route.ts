@@ -4,12 +4,46 @@ import { NextResponse } from "next/server";
 import { isAnalysisResult } from "@/types/analysis";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 const MAX_EXTRACTED_TEXT_LENGTH = 30000;
 
-const systemPrompt = `You are ClearMate, an AI document intelligence assistant.
+const systemPrompt = `
+You are ClearMate, an AI-powered document intelligence assistant.
 
-Given the extracted document text, return ONLY valid JSON in this exact format:
+Analyze the uploaded document and return ONLY valid JSON.
+
+Your goal is to help ordinary users understand complex documents quickly and accurately.
+
+Rules:
+
+- Return ONLY valid JSON.
+- Never wrap JSON inside markdown.
+- Never use \`\`\`.
+- Never explain your reasoning.
+- Never include extra text outside the JSON.
+- Use simple, natural, and non-technical language.
+- The summary should be 4–6 informative sentences explaining the document in an easy-to-understand way.
+- Extract ALL useful information that a normal user would care about.
+- Include important dates, names, IDs, amounts, account numbers, medical values, diagnoses, prescriptions, legal clauses, deadlines, bill details, addresses, contact information, skills, education, work experience, and any other significant information depending on the document type.
+- Return up to 15 importantInformation items whenever appropriate.
+- Return up to 5 clear and actionable actionsRequired items.
+- Never invent information.
+- If information is missing, leave the value as an empty string.
+
+Document Types may include (but are not limited to):
+- Resume / CV
+- Medical Report
+- Electricity Bill
+- Bank Statement
+- Legal Agreement
+- Insurance Document
+- Government Document
+- Invoice
+- Academic Certificate
+- Any other document
+
+JSON Schema:
 
 {
   "documentType": "",
@@ -24,13 +58,6 @@ Given the extracted document text, return ONLY valid JSON in this exact format:
     ""
   ]
 }
-
-Rules:
-- Return ONLY JSON.
-- Do NOT write explanations.
-- Do NOT wrap JSON in markdown.
-- Do NOT use \`\`\`.
-- Every property must exist.
 `;
 
 function hasExtractedText(
@@ -52,42 +79,55 @@ export async function POST(request: Request) {
     payload = await request.json();
   } catch {
     return NextResponse.json(
-      { error: "Request body must be valid JSON." },
-      { status: 400 }
+      {
+        error: "Invalid request body.",
+      },
+      {
+        status: 400,
+      }
     );
   }
 
   if (!hasExtractedText(payload)) {
     return NextResponse.json(
-      { error: "extractedText must be a non-empty string." },
-      { status: 400 }
+      {
+        error: "Document text is missing.",
+      },
+      {
+        status: 400,
+      }
     );
   }
 
-  const extractedText = payload.extractedText.slice(
-    0,
-    MAX_EXTRACTED_TEXT_LENGTH
-  );
+  const extractedText = payload.extractedText
+    .trim()
+    .slice(0, MAX_EXTRACTED_TEXT_LENGTH);
 
-  const apiKey = process.env.OPENROUTER_API_KEY;
+  const apiKey = process.env.OPENROUTER_API_KEY?.trim();
 
-  if (!apiKey?.trim()) {
+  if (!apiKey) {
     return NextResponse.json(
-      { error: "OpenRouter API key is missing." },
-      { status: 500 }
+      {
+        error: "OpenRouter API key is not configured.",
+      },
+      {
+        status: 500,
+      }
     );
   }
 
   try {
     const client = new OpenAI({
-      apiKey: apiKey.trim(),
+      apiKey,
       baseURL: "https://openrouter.ai/api/v1",
     });
 
-    console.log("🚀 Calling OpenRouter...");
+    console.log(
+      `🚀 ClearMate → OpenRouter (${extractedText.length} characters)`
+    );
 
     const response = await client.chat.completions.create({
-      model: "google/gemini-2.5-flash",
+      model: "google/gemini-2.5-flash-lite",
 
       messages: [
         {
@@ -104,75 +144,98 @@ export async function POST(request: Request) {
         type: "json_object",
       },
 
-      max_tokens: 2000,
+      temperature: 0.1,
+
+      max_tokens: 1400,
     });
 
-    console.log("✅ OpenRouter responded successfully.");
-
-    let responseText =
+    const raw =
       response.choices[0]?.message?.content?.trim() ?? "";
 
-    console.log("========== RAW GEMINI RESPONSE ==========");
-    console.log(responseText);
-
-    // Remove markdown fences if Gemini adds them
-    responseText = responseText
-      .replace(/^```json\s*/i, "")
-      .replace(/^```\s*/i, "")
-      .replace(/\s*```$/i, "")
-      .trim();
-
-    if (!responseText) {
+    if (!raw) {
       return NextResponse.json(
-        { error: "OpenRouter returned an empty response." },
-        { status: 502 }
+        {
+          error: "The AI returned an empty response.",
+        },
+        {
+          status: 502,
+        }
       );
     }
+
+    // Remove reasoning tags (<think>...</think>) if returned by free router/reasoning models
+    const withoutReasoning = raw
+      .replace(/<think>[\s\S]*?<\/think>/gi, "")
+      .replace(/^```json/i, "")
+      .replace(/^```/i, "")
+      .replace(/```$/i, "")
+      .trim();
+
+    // Extract JSON object if wrapped in additional text
+    const firstBrace = withoutReasoning.indexOf("{");
+    const lastBrace = withoutReasoning.lastIndexOf("}");
+
+    const cleaned =
+      firstBrace !== -1 && lastBrace !== -1
+        ? withoutReasoning.slice(firstBrace, lastBrace + 1)
+        : withoutReasoning;
 
     let analysis: unknown;
 
     try {
-      analysis = JSON.parse(responseText);
-    } catch (error) {
-      console.error("❌ Invalid JSON received:");
-      console.error(responseText);
+      analysis = JSON.parse(cleaned);
+    } catch {
+      console.error("Invalid JSON:");
+      console.error(cleaned);
 
       return NextResponse.json(
         {
-          error: "OpenRouter returned invalid JSON.",
-          raw: responseText,
+          error: "The AI returned invalid JSON.",
         },
-        { status: 502 }
+        {
+          status: 502,
+        }
       );
     }
 
     if (!isAnalysisResult(analysis)) {
-      console.error("❌ JSON shape is invalid:");
+      console.error("Unexpected JSON structure:");
       console.error(analysis);
 
       return NextResponse.json(
         {
-          error: "OpenRouter returned an unexpected response format.",
-          raw: analysis,
+          error: "Unexpected response format.",
         },
-        { status: 502 }
+        {
+          status: 502,
+        }
       );
     }
+
+    console.log("✅ Analysis completed successfully.");
 
     return NextResponse.json(analysis);
   } catch (error: any) {
     console.error("========== OPENROUTER ERROR ==========");
     console.error(error);
 
+    if (error?.status === 402) {
+      return NextResponse.json(
+        {
+          error:
+            "The AI service does not currently have enough available credits to analyze this document. Please try again later.",
+        },
+        {
+          status: 402,
+        }
+      );
+    }
+
     return NextResponse.json(
       {
-        error: error?.message || "Unknown OpenRouter error",
-        debug: {
-          message: error?.message,
-          status: error?.status,
-          code: error?.code,
-          type: error?.type,
-        },
+        error:
+          error?.message ??
+          "An unexpected AI service error occurred.",
       },
       {
         status: error?.status ?? 500,

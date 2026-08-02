@@ -100,12 +100,13 @@ ${extractedText}
     ];
 
     const response = await client.chat.completions.create({
-      model: "google/gemini-2.5-flash",
+      model: "google/gemini-2.5-flash-lite",
       messages: apiMessages,
       max_tokens: 1000,
     });
 
-    const reply = response.choices[0]?.message?.content?.trim() ?? "";
+    let reply = response.choices[0]?.message?.content?.trim() ?? "";
+    reply = reply.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
 
     if (!reply) {
       return NextResponse.json(
