@@ -20,6 +20,7 @@ type DocumentContextValue = {
   setAnalysisResult: (analysis: AnalysisResult | null) => void;
   chatMessages: ChatMessage[];
   setChatMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
+  resetSession: () => void;
 };
 
 /** In-memory document session shared by the upload, processing, and results routes. */
@@ -31,6 +32,13 @@ export function DocumentProvider({ children }: Readonly<{ children: ReactNode }>
   const [extractedText, setExtractedText] = useState("");
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+
+  const resetSession = useCallback(() => {
+    setDocumentFileState(null);
+    setExtractedText("");
+    setAnalysisResult(null);
+    setChatMessages([]);
+  }, []);
 
   const setDocumentFile = useCallback((file: File | null) => {
     setDocumentFileState(file);
@@ -49,8 +57,9 @@ export function DocumentProvider({ children }: Readonly<{ children: ReactNode }>
       setAnalysisResult,
       chatMessages,
       setChatMessages,
+      resetSession,
     }),
-    [analysisResult, chatMessages, documentFile, extractedText, setDocumentFile],
+    [analysisResult, chatMessages, documentFile, extractedText, resetSession, setDocumentFile],
   );
 
   return <DocumentContext value={value}>{children}</DocumentContext>;

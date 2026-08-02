@@ -112,7 +112,7 @@ async function requestAnalysis(extractedText: string, signal: AbortSignal) {
 /** Visual-only document-analysis progress experience with timed local state. */
 export function ProcessingStatus() {
   const router = useRouter();
-  const { documentFile, setAnalysisResult, setExtractedText } = useDocumentContext();
+  const { documentFile, setAnalysisResult, setExtractedText, resetSession } = useDocumentContext();
   const [progress, setProgress] = useState(0);
   const [isPreparing, setIsPreparing] = useState(true);
   const [analysisReady, setAnalysisReady] = useState(false);
@@ -224,7 +224,10 @@ export function ProcessingStatus() {
           <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
             <button
               type="button"
-              onClick={() => router.push("/analyze")}
+              onClick={() => {
+                resetSession();
+                router.push("/analyze");
+              }}
               className="inline-flex items-center justify-center rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(37,99,235,0.22)] transition duration-200 hover:-translate-y-0.5 hover:bg-primary-dark hover:shadow-[0_14px_28px_rgba(37,99,235,0.28)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
             >
               Upload Another Document

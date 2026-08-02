@@ -8,6 +8,7 @@ type ButtonProps = {
   href: string;
   variant?: "primary" | "secondary";
   className?: string;
+  onClick?: () => void;
 };
 
 export function Button({
@@ -15,6 +16,7 @@ export function Button({
   href,
   className = "",
   variant = "primary",
+  onClick,
 }: Readonly<ButtonProps>) {
   const variants = {
     primary:
@@ -26,6 +28,7 @@ export function Button({
   return (
     <Link
       href={href}
+      onClick={onClick}
       className={`inline-flex items-center justify-center rounded-xl px-5 py-3 text-sm font-semibold transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${variants[variant]} ${className}`}
     >
       {children}

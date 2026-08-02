@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { useDocumentContext } from "@/contexts/document-context";
 
 export default function ResultsPage() {
-  const { analysisResult, documentFile } = useDocumentContext();
+  const { analysisResult, documentFile, resetSession } = useDocumentContext();
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -150,7 +150,7 @@ export default function ResultsPage() {
             </p>
 
             <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
-              <Button href="/analyze" className="gap-2">
+              <Button href="/analyze" onClick={resetSession} className="gap-2">
                 Analyze New Document
                 <FileCheck2 className="size-4" />
               </Button>
